@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+
+{% block title %}Monitoring - SecurityWatch Pro{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="text-white mb-0">
+            <i class="fas fa-eye"></i> Monitoring Control
+            <small class="text-white-50">Start, stop, and configure monitoring</small>
+        </h1>
+    </div>
+</div>
+
+<!-- Monitoring Status -->
+<div class="row mb-4">
+    <div class="col-md-8 mb-3">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> Monitoring Status</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Status:</strong> 
+                            <span class="badge bg-{{ 'success' if status.running else 'danger' }}" id="monitoring-status">
+                                {{ '🟢 Running' if status.running else '🔴 Stopped' }}
+                            </span>
+                        </p>
+                        <p><strong>Log Files Monitored:</strong> {{ status.log_files_monitored }}</p>
+                        <p><strong>Total Events:</strong> {{ status.total_events }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Check Interval:</strong> {{ status.config_summary.check_interval }} seconds</p>
+                        <p><strong>Email Alerts:</strong> 
+                            <span class="badge bg-{{ 'success' if status.config_summary.email_configured else 'warning' }}">
+                                {{ 'Enabled' if status.config_summary.email_configured else 'Disabled' }}
+                            </span>
+                        </p>
+                        <p><strong>Database Retention:</strong> {{ status.config_summary.database_retention_days }} days</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="fas fa-play-circle"></i> Quick Actions</h5>
+            </div>
+            <div class="card-body text-center">
+                <button class="btn btn-success btn-lg mb-2 w-100" onclick="startMonitoring()" id="start-btn">
+                    <i class="fas fa-play"></i> Start Monitoring
+                </button>
+                <button class="btn btn-danger btn-lg mb-2 w-100" onclick="stopMonitoring()" id="stop-btn">
+                    <i class="fas fa-stop"></i> Stop Monitoring
+                </button>
+                <button class="btn btn-info btn-lg w-100" onclick="runScan()">
+                    <i class="fas fa-search"></i> Manual Scan
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Events by Severity -->
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Events by Severity</h5>
+            </div>
+            <div class="card-body">
+                {% for severity, count in status.events_by_severity.items() %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="severity-{{ severity }}">{{ severity.upper() }}</span>
+                    <span class="badge bg-{{ 'danger' if severity == 'critical' else 'warning' if severity == 'high' else 'info' if severity == 'medium' else 'secondary' }}">
+                        {{ count }}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-globe"></i> Top Attacking IPs</h5>
+            </div>
+            <div class="card-body">
+                {% if status.top_attacking_ips %}
+                    {% for ip, count in status.top_attacking_ips %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold">{{ ip }}</span>
+                        <span class="badge bg-danger">{{ count }} events</span>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">No attacking IPs detected</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Log Files -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-file-alt"></i> Monitored Log Files</h5>
+                <button class="btn btn-light btn-sm" onclick="refreshLogFiles()">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="log-files-list">
+                    <div class="text-center">
+                        <div class="loading"></div>
+                        <p>Loading log files...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scan Results Modal -->
+<div class="modal fade" id="scanResultsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Manual Scan Results</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="scanResultsContent">
+                <!-- Scan results will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Monitoring control functions
+    function startMonitoring() {
+        const btn = document.getElementById('start-btn');
+        btn.innerHTML = '<div class="loading"></div> Starting...';
+        btn.disabled = true;
+        
+        fetch('/api/monitoring/start')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'started') {
+                    document.getElementById('monitoring-status').innerHTML = '🟢 Running';
+                    document.getElementById('monitoring-status').className = 'badge bg-success';
+                    showAlert('Monitoring started successfully!', 'success');
+                } else {
+                    showAlert('Failed to start monitoring', 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('Error starting monitoring: ' + error, 'danger');
+            })
+            .finally(() => {
+                btn.innerHTML = '<i class="fas fa-play"></i> Start Monitoring';
+                btn.disabled = false;
+            });
+    }
+    
+    function stopMonitoring() {
+        const btn = document.getElementById('stop-btn');
+        btn.innerHTML = '<div class="loading"></div> Stopping...';
+        btn.disabled = true;
+        
+        fetch('/api/monitoring/stop')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'stopped') {
+                    document.getElementById('monitoring-status').innerHTML = '🔴 Stopped';
+                    document.getElementById('monitoring-status').className = 'badge bg-danger';
+                    showAlert('Monitoring stopped successfully!', 'warning');
+                } else {
+                    showAlert('Failed to stop monitoring', 'danger');
+                }
+            })
+            .catch(error => {
+                showAlert('Error stopping monitoring: ' + error, 'danger');
+            })
+            .finally(() => {
+                btn.innerHTML = '<i class="fas fa-stop"></i> Stop Monitoring';
+                btn.disabled = false;
+            });
+    }
+    
+    function runScan() {
+        const modal = new bootstrap.Modal(document.getElementById('scanResultsModal'));
+        const content = document.getElementById('scanResultsContent');
+        
+        // Show loading
+        content.innerHTML = `
+            <div class="text-center">
+                <div class="loading"></div>
+                <p>Running manual security scan...</p>
+            </div>
+        `;
+        
+        modal.show();
+        
+        fetch('/api/monitoring/scan')
+            .then(response => response.json())
+            .then(data => {
+                const analysis = data.analysis;
+                content.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Scan Summary</h6>
+                            <p><strong>Events Found:</strong> ${data.events_found}</p>
+                            <p><strong>Threat Score:</strong> 
+                                <span class="badge bg-${analysis.threat_score >= 70 ? 'danger' : analysis.threat_score >= 40 ? 'warning' : 'success'}">
+                                    ${analysis.threat_score}/100
+                                </span>
+                            </p>
+                            <p><strong>Brute Force Attacks:</strong> ${analysis.brute_force_attempts.length}</p>
+                            <p><strong>Scan Time:</strong> ${new Date(data.scan_time).toLocaleString()}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Severity Breakdown</h6>
+                            ${Object.entries(analysis.severity_breakdown).map(([severity, count]) => 
+                                `<p><span class="severity-${severity}">${severity.toUpperCase()}:</span> ${count}</p>`
+                            ).join('')}
+                        </div>
+                    </div>
+                    
+                    ${analysis.recommendations.length > 0 ? `
+                        <h6>Recommendations</h6>
+                        <ul>
+                            ${analysis.recommendations.slice(0, 5).map(rec => `<li>${rec}</li>`).join('')}
+                        </ul>
+                    ` : ''}
+                `;
+            })
+            .catch(error => {
+                content.innerHTML = `<p class="text-danger">Error running scan: ${error}</p>`;
+            });
+    }
+    
+    function refreshLogFiles() {
+        const container = document.getElementById('log-files-list');
+        container.innerHTML = `
+            <div class="text-center">
+                <div class="loading"></div>
+                <p>Loading log files...</p>
+            </div>
+        `;
+        
+        // Simulate loading log files (you can implement actual API call)
+        setTimeout(() => {
+            container.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>System Log Files</h6>
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                /var/log/auth.log
+                                <span class="badge bg-success">Active</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                /var/log/syslog
+                                <span class="badge bg-success">Active</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                /var/log/secure
+                                <span class="badge bg-warning">Not Found</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Web Server Logs</h6>
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                /var/log/apache2/access.log
+                                <span class="badge bg-warning">Not Found</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                /var/log/nginx/access.log
+                                <span class="badge bg-warning">Not Found</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+        }, 1000);
+    }
+    
+    function showAlert(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        const container = document.querySelector('.main-content');
+        container.insertBefore(alertDiv, container.firstChild);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+    
+    // Load log files on page load
+    document.addEventListener('DOMContentLoaded', refreshLogFiles);
+</script>
+{% endblock %}

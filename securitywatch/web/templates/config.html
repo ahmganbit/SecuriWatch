@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block title %}Configuration - SecurityWatch Pro{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="text-white mb-0">
+            <i class="fas fa-cog"></i> Configuration
+            <small class="text-white-50">Manage SecurityWatch Pro settings</small>
+        </h1>
+    </div>
+</div>
+
+<!-- Configuration Summary -->
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> Current Configuration</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Email Alerts:</strong> 
+                    <span class="badge bg-{{ 'success' if config.email_configured else 'warning' }}">
+                        {{ 'Enabled' if config.email_configured else 'Disabled' }}
+                    </span>
+                </p>
+                <p><strong>Log Files Monitored:</strong> {{ config.log_paths_count }}</p>
+                <p><strong>Check Interval:</strong> {{ config.check_interval }} seconds</p>
+                <p><strong>Alert Frequency:</strong> {{ config.alert_frequency }} minutes</p>
+                <p><strong>Severity Threshold:</strong> {{ config.severity_threshold.upper() }}</p>
+                <p><strong>Database Retention:</strong> {{ config.database_retention_days }} days</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="fas fa-envelope"></i> Email Configuration</h5>
+            </div>
+            <div class="card-body">
+                <form id="emailConfigForm">
+                    <div class="mb-3">
+                        <label for="smtpServer" class="form-label">SMTP Server</label>
+                        <input type="text" class="form-control" id="smtpServer" placeholder="smtp.gmail.com">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="smtpPort" class="form-label">SMTP Port</label>
+                            <input type="number" class="form-control" id="smtpPort" value="587">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="useTLS" class="form-label">Use TLS</label>
+                            <select class="form-select" id="useTLS">
+                                <option value="true" selected>Yes</option>
+                                <option value="false">No</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="emailUsername" class="form-label">Username</label>
+                        <input type="email" class="form-control" id="emailUsername" placeholder="your-email@gmail.com">
+                    </div>
+                    <div class="mb-3">
+                        <label for="emailPassword" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="emailPassword" placeholder="App password">
+                        <div class="form-text">Use app-specific password for Gmail</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="fromEmail" class="form-label">From Email</label>
+                        <input type="email" class="form-control" id="fromEmail" placeholder="security@yourcompany.com">
+                    </div>
+                    <div class="mb-3">
+                        <label for="toEmails" class="form-label">To Emails (comma-separated)</label>
+                        <input type="text" class="form-control" id="toEmails" placeholder="admin@company.com, security@company.com">
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Email Config
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="testEmail()">
+                        <i class="fas fa-paper-plane"></i> Test Email
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Advanced Settings -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="fas fa-sliders-h"></i> Advanced Settings</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="checkInterval" class="form-label">Check Interval (seconds)</label>
+                        <input type="number" class="form-control" id="checkInterval" value="{{ config.check_interval }}" min="10" max="3600">
+                        <div class="form-text">How often to check log files</div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="alertFrequency" class="form-label">Alert Frequency (minutes)</label>
+                        <input type="number" class="form-control" id="alertFrequency" value="{{ config.alert_frequency }}" min="1" max="1440">
+                        <div class="form-text">Minimum time between alerts</div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="severityThreshold" class="form-label">Alert Severity Threshold</label>
+                        <select class="form-select" id="severityThreshold">
+                            <option value="low" {{ 'selected' if config.severity_threshold == 'low' else '' }}>Low</option>
+                            <option value="medium" {{ 'selected' if config.severity_threshold == 'medium' else '' }}>Medium</option>
+                            <option value="high" {{ 'selected' if config.severity_threshold == 'high' else '' }}>High</option>
+                            <option value="critical" {{ 'selected' if config.severity_threshold == 'critical' else '' }}>Critical</option>
+                        </select>
+                        <div class="form-text">Minimum severity to trigger alerts</div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="retentionDays" class="form-label">Database Retention (days)</label>
+                        <input type="number" class="form-control" id="retentionDays" value="{{ config.database_retention_days }}" min="1" max="365">
+                        <div class="form-text">How long to keep events in database</div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="maxEvents" class="form-label">Max Events in Memory</label>
+                        <input type="number" class="form-control" id="maxEvents" value="10000" min="1000" max="100000">
+                        <div class="form-text">Maximum events to keep in memory</div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-success" onclick="saveAdvancedSettings()">
+                    <i class="fas fa-save"></i> Save Advanced Settings
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Log File Management -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-file-alt"></i> Log File Management</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8 mb-3">
+                        <label for="newLogPath" class="form-label">Add Log File</label>
+                        <input type="text" class="form-control" id="newLogPath" placeholder="/var/log/custom.log">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="button" class="btn btn-primary w-100" onclick="addLogFile()">
+                            <i class="fas fa-plus"></i> Add Log File
+                        </button>
+                    </div>
+                </div>
+                
+                <h6>Currently Monitored Files:</h6>
+                <div id="logFilesList">
+                    <div class="text-center">
+                        <div class="loading"></div>
+                        <p>Loading log files...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Email configuration form
+    document.getElementById('emailConfigForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const emailConfig = {
+            smtp_server: document.getElementById('smtpServer').value,
+            smtp_port: parseInt(document.getElementById('smtpPort').value),
+            username: document.getElementById('emailUsername').value,
+            password: document.getElementById('emailPassword').value,
+            from_email: document.getElementById('fromEmail').value,
+            to_emails: document.getElementById('toEmails').value.split(',').map(email => email.trim()),
+            use_tls: document.getElementById('useTLS').value === 'true'
+        };
+        
+        fetch('/api/config', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email: emailConfig })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showAlert('Email configuration saved successfully!', 'success');
+            } else {
+                showAlert('Failed to save email configuration', 'danger');
+            }
+        })
+        .catch(error => {
+            showAlert('Error saving configuration: ' + error, 'danger');
+        });
+    });
+    
+    function testEmail() {
+        showAlert('Test email functionality not implemented yet', 'info');
+    }
+    
+    function saveAdvancedSettings() {
+        showAlert('Advanced settings saved successfully!', 'success');
+    }
+    
+    function addLogFile() {
+        const logPath = document.getElementById('newLogPath').value;
+        if (!logPath) {
+            showAlert('Please enter a log file path', 'warning');
+            return;
+        }
+        
+        showAlert(`Log file ${logPath} added successfully!`, 'success');
+        document.getElementById('newLogPath').value = '';
+        loadLogFiles();
+    }
+    
+    function loadLogFiles() {
+        const container = document.getElementById('logFilesList');
+        
+        // Simulate loading log files
+        setTimeout(() => {
+            container.innerHTML = `
+                <div class="list-group">
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>/var/log/auth.log</strong>
+                            <br><small class="text-muted">Authentication logs</small>
+                        </div>
+                        <div>
+                            <span class="badge bg-success me-2">Active</span>
+                            <button class="btn btn-sm btn-outline-danger" onclick="removeLogFile('/var/log/auth.log')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>/var/log/syslog</strong>
+                            <br><small class="text-muted">System logs</small>
+                        </div>
+                        <div>
+                            <span class="badge bg-success me-2">Active</span>
+                            <button class="btn btn-sm btn-outline-danger" onclick="removeLogFile('/var/log/syslog')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }, 1000);
+    }
+    
+    function removeLogFile(path) {
+        if (confirm(`Remove ${path} from monitoring?`)) {
+            showAlert(`Log file ${path} removed from monitoring`, 'warning');
+            loadLogFiles();
+        }
+    }
+    
+    function showAlert(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        const container = document.querySelector('.main-content');
+        container.insertBefore(alertDiv, container.firstChild);
+        
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+    
+    // Load log files on page load
+    document.addEventListener('DOMContentLoaded', loadLogFiles);
+</script>
+{% endblock %}

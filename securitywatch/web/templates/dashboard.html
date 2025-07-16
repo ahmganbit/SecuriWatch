@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - SecurityWatch Pro{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="text-white mb-0">
+            <i class="fas fa-tachometer-alt"></i> Security Dashboard
+            <small class="text-white-50">Real-time threat monitoring</small>
+        </h1>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card">
+            <div class="stat-number" id="total-events">{{ stats.get('total_events', 0) }}</div>
+            <div class="stat-label">
+                <i class="fas fa-exclamation-triangle"></i> Total Events
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card">
+            <div class="stat-number" id="recent-events">{{ recent_events|length }}</div>
+            <div class="stat-label">
+                <i class="fas fa-clock"></i> Last 24 Hours
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card">
+            <div class="stat-number">{{ analysis.get('brute_force_attempts', [])|length }}</div>
+            <div class="stat-label">
+                <i class="fas fa-hammer"></i> Brute Force Attacks
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card stat-card">
+            <div class="stat-number">{{ stats.get('by_severity', {}).get('critical', 0) }}</div>
+            <div class="stat-label">
+                <i class="fas fa-fire"></i> Critical Events
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Threat Score and Charts -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-crosshairs"></i> Threat Score</h5>
+            </div>
+            <div class="card-body text-center">
+                <div class="threat-score {% if analysis.get('threat_score', 0) >= 70 %}threat-high{% elif analysis.get('threat_score', 0) >= 40 %}threat-medium{% else %}threat-low{% endif %}" id="threat-score">
+                    {{ analysis.get('threat_score', 0) }}
+                </div>
+                <p class="text-muted">
+                    {% if analysis.get('threat_score', 0) >= 70 %}
+                        🚨 CRITICAL THREAT LEVEL
+                    {% elif analysis.get('threat_score', 0) >= 40 %}
+                        ⚠️ HIGH THREAT LEVEL
+                    {% elif analysis.get('threat_score', 0) >= 20 %}
+                        📊 MEDIUM THREAT LEVEL
+                    {% else %}
+                        ✅ LOW THREAT LEVEL
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8 mb-3">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-pie"></i> Severity Breakdown</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="severityChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top Attacking IPs and Recent Events -->
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="fas fa-globe"></i> Top Attacking IPs</h5>
+            </div>
+            <div class="card-body">
+                {% if stats.get('top_ips') %}
+                    {% for ip, count in stats.get('top_ips', [])[:5] %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold">{{ ip }}</span>
+                        <span class="badge bg-danger">{{ count }} events</span>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">No attacking IPs detected</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-list"></i> Recent Events</h5>
+            </div>
+            <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                {% if recent_events %}
+                    {% for event in recent_events[:5] %}
+                    <div class="event-item event-{{ event.severity }}">
+                        <div class="d-flex justify-content-between">
+                            <strong class="severity-{{ event.severity }}">
+                                {{ event.event_type.replace('_', ' ').title() }}
+                            </strong>
+                            <small class="text-muted">{{ event.timestamp.strftime('%H:%M:%S') }}</small>
+                        </div>
+                        <div class="mt-1">
+                            <small>
+                                <i class="fas fa-map-marker-alt"></i> {{ event.source_ip or 'Unknown' }} |
+                                <i class="fas fa-user"></i> {{ event.username or 'Unknown' }}
+                            </small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">No recent events</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Brute Force Attacks -->
+{% if analysis.get('brute_force_attempts') %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-hammer"></i> Active Brute Force Attacks</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Source IP</th>
+                                <th>Attempts</th>
+                                <th>Time Span</th>
+                                <th>Usernames Targeted</th>
+                                <th>Severity</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for attack in analysis.get('brute_force_attempts', [])[:5] %}
+                            <tr>
+                                <td><strong>{{ attack.source_ip }}</strong></td>
+                                <td><span class="badge bg-warning">{{ attack.attempt_count }}</span></td>
+                                <td>{{ "%.0f"|format(attack.time_span_seconds) }}s</td>
+                                <td>{{ attack.usernames_targeted[:3]|join(', ') }}{% if attack.usernames_targeted|length > 3 %} (+{{ attack.usernames_targeted|length - 3 }} more){% endif %}</td>
+                                <td><span class="badge bg-{{ 'danger' if attack.severity == 'critical' else 'warning' }}">{{ attack.severity.upper() }}</span></td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="analyzeIP('{{ attack.source_ip }}')">
+                                        <i class="fas fa-search"></i> Analyze
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Security Recommendations -->
+{% if analysis.get('recommendations') %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-lightbulb"></i> Security Recommendations</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    {% for recommendation in analysis.get('recommendations', [])[:5] %}
+                    <li class="mb-2">
+                        <i class="fas fa-check-circle text-success"></i> {{ recommendation }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- IP Analysis Modal -->
+<div class="modal fade" id="ipAnalysisModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">IP Address Analysis</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="ipAnalysisContent">
+                <div class="text-center">
+                    <div class="loading"></div>
+                    <p>Analyzing IP address...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Severity Chart
+    const ctx = document.getElementById('severityChart').getContext('2d');
+    const severityData = {{ analysis.get('severity_breakdown', {})|tojson }};
+    
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Critical', 'High', 'Medium', 'Low'],
+            datasets: [{
+                data: [
+                    severityData.critical || 0,
+                    severityData.high || 0,
+                    severityData.medium || 0,
+                    severityData.low || 0
+                ],
+                backgroundColor: [
+                    '#e74c3c',
+                    '#f39c12',
+                    '#3498db',
+                    '#95a5a6'
+                ],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+    
+    // IP Analysis function
+    function analyzeIP(ip) {
+        const modal = new bootstrap.Modal(document.getElementById('ipAnalysisModal'));
+        const content = document.getElementById('ipAnalysisContent');
+        
+        // Show loading
+        content.innerHTML = `
+            <div class="text-center">
+                <div class="loading"></div>
+                <p>Analyzing IP address: ${ip}</p>
+            </div>
+        `;
+        
+        modal.show();
+        
+        // Fetch IP analysis
+        fetch(`/api/analysis/${ip}`)
+            .then(response => response.json())
+            .then(data => {
+                content.innerHTML = `
+                    <h6>IP Address: ${data.ip}</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Total Events:</strong> ${data.total_events}</p>
+                            <p><strong>Threat Level:</strong> 
+                                <span class="badge bg-${data.threat_level === 'high' ? 'danger' : data.threat_level === 'medium' ? 'warning' : 'success'}">
+                                    ${data.threat_level.toUpperCase()}
+                                </span>
+                            </p>
+                            <p><strong>First Seen:</strong> ${new Date(data.first_seen).toLocaleString()}</p>
+                            <p><strong>Last Seen:</strong> ${new Date(data.last_seen).toLocaleString()}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Usernames Targeted:</strong></p>
+                            <ul>
+                                ${data.usernames_targeted.map(user => `<li>${user}</li>`).join('')}
+                            </ul>
+                            ${data.is_brute_force ? '<p class="text-danger"><i class="fas fa-exclamation-triangle"></i> <strong>Brute Force Pattern Detected!</strong></p>' : ''}
+                        </div>
+                    </div>
+                `;
+            })
+            .catch(error => {
+                content.innerHTML = `<p class="text-danger">Error analyzing IP: ${error}</p>`;
+            });
+    }
+    
+    // Auto-refresh dashboard every 30 seconds
+    setInterval(() => {
+        location.reload();
+    }, 30000);
+</script>
+{% endblock %}
