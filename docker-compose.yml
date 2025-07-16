@@ -1,0 +1,98 @@
+version: '3.8'
+
+services:
+  # SecurityWatch Pro Web Dashboard
+  securitywatch-web:
+    build: .
+    container_name: securitywatch-web
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./reports:/app/reports
+      - /var/log:/var/log:ro  # Mount host logs as read-only
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/stats"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - securitywatch-network
+
+  # SecurityWatch Pro CLI Monitor (Background Service)
+  securitywatch-monitor:
+    build: .
+    container_name: securitywatch-monitor
+    command: ["python", "securitywatch_cli.py", "start", "--daemon"]
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - /var/log:/var/log:ro  # Mount host logs as read-only
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    depends_on:
+      - securitywatch-web
+    networks:
+      - securitywatch-network
+
+  # Optional: Nginx Reverse Proxy for Production
+  nginx:
+    image: nginx:alpine
+    container_name: securitywatch-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - securitywatch-web
+    restart: unless-stopped
+    networks:
+      - securitywatch-network
+    profiles:
+      - production  # Only start with --profile production
+
+  # Optional: PostgreSQL for Production Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: securitywatch-postgres
+    environment:
+      POSTGRES_DB: securitywatch
+      POSTGRES_USER: securitywatch
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-securitywatch_secure_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - securitywatch-network
+    profiles:
+      - production  # Only start with --profile production
+
+  # Optional: Redis for Caching and Session Storage
+  redis:
+    image: redis:7-alpine
+    container_name: securitywatch-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - securitywatch-network
+    profiles:
+      - production  # Only start with --profile production
+
+networks:
+  securitywatch-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
