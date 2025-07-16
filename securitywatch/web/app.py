@@ -29,7 +29,7 @@ def create_app():
     config = SecurityWatchConfig()
     monitor = SecurityWatchMonitor(config)
     database = SecurityDatabase()
-    analyzer = ThreatAnalyzer(database)
+    analyzer = ThreatAnalyzer(database, enable_ai=True)
     report_generator = ReportGenerator(database)
     
     # Store components in app context
@@ -66,7 +66,9 @@ def create_app():
             'threat_score': analysis.get('threat_score', 0),
             'brute_force_attacks': len(analysis.get('brute_force_attempts', [])),
             'severity_breakdown': dict(analysis.get('severity_breakdown', {})),
-            'top_ips': analysis.get('top_source_ips', {})
+            'top_ips': analysis.get('top_source_ips', {}),
+            'ai_analysis': analysis.get('ai_analysis', {}),
+            'ai_enabled': analysis.get('ai_enabled', False)
         })
     
     @app.route('/api/events')
@@ -213,6 +215,69 @@ def create_app():
     update_thread = threading.Thread(target=background_updates, daemon=True)
     update_thread.start()
     
+    # AI-specific API endpoints
+    @app.route('/api/ai/status')
+    def api_ai_status():
+        """Get AI system status"""
+        try:
+            status = analyzer.get_ai_status()
+            return jsonify(status)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/ai/analyze', methods=['POST'])
+    def api_ai_analyze():
+        """Run comprehensive AI analysis"""
+        try:
+            hours = request.json.get('hours', 24) if request.json else 24
+            events = database.get_recent_events(hours)
+
+            analysis = analyzer.analyze_events_comprehensive_ai(events)
+            return jsonify(analysis)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/ai/train', methods=['POST'])
+    def api_ai_train():
+        """Train AI models"""
+        try:
+            result = analyzer.train_ai_models()
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/ai/predict')
+    def api_ai_predict():
+        """Get threat predictions"""
+        try:
+            hours_ahead = request.args.get('hours', 24, type=int)
+            predictions = analyzer.predict_threats(hours_ahead)
+            return jsonify(predictions)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/ai')
+    def ai_dashboard():
+        """AI Dashboard page"""
+        try:
+            # Get AI status
+            ai_status = analyzer.get_ai_status()
+
+            # Get recent comprehensive analysis
+            recent_events = database.get_recent_events(24)
+            ai_analysis = analyzer.analyze_events_comprehensive_ai(recent_events[:100])  # Limit for performance
+
+            # Get predictions
+            predictions = analyzer.predict_threats(24)
+
+            return render_template('ai_dashboard.html',
+                                 ai_status=ai_status,
+                                 ai_analysis=ai_analysis,
+                                 predictions=predictions)
+        except Exception as e:
+            return render_template('ai_dashboard.html',
+                                 error=str(e))
+
     return app, socketio
 
 

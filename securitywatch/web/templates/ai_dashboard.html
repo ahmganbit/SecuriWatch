@@ -1,0 +1,402 @@
+{% extends "base.html" %}
+
+{% block title %}AI Dashboard - SecurityWatch Pro{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="text-white mb-0">
+            <i class="fas fa-brain"></i> AI-Powered Threat Intelligence
+            <small class="text-white-50">Advanced machine learning security analysis</small>
+        </h1>
+    </div>
+</div>
+
+<!-- AI Status Overview -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <div class="display-4 mb-2">
+                    {% if ai_status.get('ai_enabled') %}
+                        <i class="fas fa-robot text-success"></i>
+                    {% else %}
+                        <i class="fas fa-robot text-warning"></i>
+                    {% endif %}
+                </div>
+                <h5>AI Status</h5>
+                <p class="mb-0">
+                    <span class="badge bg-{{ 'success' if ai_status.get('ai_enabled') else 'warning' }}">
+                        {{ 'Active' if ai_status.get('ai_enabled') else 'Inactive' }}
+                    </span>
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <div class="display-4 mb-2">
+                    <i class="fas fa-search text-primary"></i>
+                </div>
+                <h5>Anomaly Detection</h5>
+                <p class="mb-0">
+                    <span class="badge bg-{{ 'success' if ai_status.get('anomaly_detector', {}).get('is_trained') else 'secondary' }}">
+                        {{ 'Trained' if ai_status.get('anomaly_detector', {}).get('is_trained') else 'Not Trained' }}
+                    </span>
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <div class="display-4 mb-2">
+                    <i class="fas fa-shield-alt text-info"></i>
+                </div>
+                <h5>Threat Classification</h5>
+                <p class="mb-0">
+                    <span class="badge bg-{{ 'success' if ai_status.get('threat_classifier', {}).get('is_trained') else 'secondary' }}">
+                        {{ 'Trained' if ai_status.get('threat_classifier', {}).get('is_trained') else 'Not Trained' }}
+                    </span>
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <div class="display-4 mb-2">
+                    <i class="fas fa-crystal-ball text-warning"></i>
+                </div>
+                <h5>Predictive Engine</h5>
+                <p class="mb-0">
+                    <span class="badge bg-{{ 'success' if ai_status.get('predictive_engine', {}).get('is_trained') else 'secondary' }}">
+                        {{ 'Trained' if ai_status.get('predictive_engine', {}).get('is_trained') else 'Not Trained' }}
+                    </span>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- AI Analysis Results -->
+{% if ai_analysis and not error %}
+<div class="row mb-4">
+    <div class="col-md-8 mb-3">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-brain"></i> AI Threat Analysis</h5>
+            </div>
+            <div class="card-body">
+                {% if ai_analysis.get('insights') %}
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6>Overall Threat Level</h6>
+                            <span class="badge bg-{{ 'danger' if ai_analysis.insights.overall_threat_level == 'critical' else 'warning' if ai_analysis.insights.overall_threat_level == 'high' else 'info' if ai_analysis.insights.overall_threat_level == 'medium' else 'success' }} fs-6">
+                                {{ ai_analysis.insights.overall_threat_level.upper() }}
+                            </span>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Confidence Score</h6>
+                            <div class="progress">
+                                <div class="progress-bar" style="width: {{ ai_analysis.insights.confidence_score }}%">
+                                    {{ ai_analysis.insights.confidence_score }}%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if ai_analysis.insights.key_findings %}
+                    <div class="mb-3">
+                        <h6>Key Findings</h6>
+                        <ul class="list-unstyled">
+                            {% for finding in ai_analysis.insights.key_findings %}
+                            <li><i class="fas fa-exclamation-triangle text-warning"></i> {{ finding }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    
+                    {% if ai_analysis.insights.recommendations %}
+                    <div class="mb-3">
+                        <h6>AI Recommendations</h6>
+                        <ul class="list-unstyled">
+                            {% for rec in ai_analysis.insights.recommendations %}
+                            <li><i class="fas fa-lightbulb text-info"></i> {{ rec }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-pie"></i> Analysis Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <strong>Events Analyzed:</strong> {{ ai_analysis.get('event_count', 0) }}
+                </div>
+                <div class="mb-2">
+                    <strong>Anomalies Detected:</strong> 
+                    {{ ai_analysis.get('anomaly_detection', {}).get('anomalies_detected', 0) }}
+                </div>
+                <div class="mb-2">
+                    <strong>Threats Classified:</strong> 
+                    {{ ai_analysis.get('threat_classification', {}).get('threats_classified', 0) }}
+                </div>
+                <div class="mb-2">
+                    <strong>Behavioral Anomalies:</strong> 
+                    {{ ai_analysis.get('behavioral_analysis', {}).get('behavioral_anomalies', 0) }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Threat Predictions -->
+{% if predictions and not error %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="fas fa-crystal-ball"></i> Threat Predictions (Next 24 Hours)</h5>
+            </div>
+            <div class="card-body">
+                {% if predictions.get('summary') %}
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h6>Total Predicted Events</h6>
+                            <span class="display-6">{{ predictions.summary.get('total_predicted_events', 0) }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h6>Average Severity</h6>
+                            <span class="display-6">{{ "%.1f"|format(predictions.summary.get('average_severity_score', 0)) }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h6>Peak Risk Hour</h6>
+                            <span class="fs-5">{{ predictions.summary.get('peak_risk_hour', 'N/A')[:16] if predictions.summary.get('peak_risk_hour') else 'N/A' }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h6>Risk Distribution</h6>
+                            {% for level, count in predictions.summary.get('risk_level_distribution', {}).items() %}
+                            <span class="badge bg-{{ 'danger' if level == 'critical' else 'warning' if level == 'high' else 'info' if level == 'medium' else 'success' }} me-1">
+                                {{ level }}: {{ count }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                
+                {% if predictions.summary.get('alerts') %}
+                <div class="alert alert-warning">
+                    <h6><i class="fas fa-exclamation-triangle"></i> Predictive Alerts</h6>
+                    {% for alert in predictions.summary.alerts %}
+                    <div>{{ alert }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                {% if predictions.summary.get('recommendations') %}
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-lightbulb"></i> Predictive Recommendations</h6>
+                    {% for rec in predictions.summary.recommendations %}
+                    <div>{{ rec }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- AI Model Management -->
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="fas fa-cogs"></i> Model Management</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary" onclick="trainAIModels()">
+                        <i class="fas fa-graduation-cap"></i> Train AI Models
+                    </button>
+                    <button class="btn btn-info" onclick="runAIAnalysis()">
+                        <i class="fas fa-search"></i> Run Comprehensive Analysis
+                    </button>
+                    <button class="btn btn-warning" onclick="refreshPredictions()">
+                        <i class="fas fa-sync"></i> Refresh Predictions
+                    </button>
+                </div>
+                
+                <div id="modelTrainingStatus" class="mt-3" style="display: none;">
+                    <div class="alert alert-info">
+                        <i class="fas fa-spinner fa-spin"></i> Training AI models... This may take several minutes.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> Model Information</h5>
+            </div>
+            <div class="card-body">
+                {% if ai_status.get('ai_enabled') %}
+                <div class="mb-2">
+                    <strong>Anomaly Detector:</strong>
+                    <span class="badge bg-{{ 'success' if ai_status.get('anomaly_detector', {}).get('is_trained') else 'secondary' }}">
+                        {{ 'Ready' if ai_status.get('anomaly_detector', {}).get('is_trained') else 'Needs Training' }}
+                    </span>
+                </div>
+                <div class="mb-2">
+                    <strong>Threat Classifier:</strong>
+                    <span class="badge bg-{{ 'success' if ai_status.get('threat_classifier', {}).get('is_trained') else 'secondary' }}">
+                        {{ 'Ready' if ai_status.get('threat_classifier', {}).get('is_trained') else 'Needs Training' }}
+                    </span>
+                </div>
+                <div class="mb-2">
+                    <strong>Behavioral Analyzer:</strong>
+                    <span class="badge bg-success">Always Ready</span>
+                </div>
+                <div class="mb-2">
+                    <strong>Predictive Engine:</strong>
+                    <span class="badge bg-{{ 'success' if ai_status.get('predictive_engine', {}).get('is_trained') else 'secondary' }}">
+                        {{ 'Ready' if ai_status.get('predictive_engine', {}).get('is_trained') else 'Needs Training' }}
+                    </span>
+                </div>
+                {% else %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i> AI components not available. 
+                    {% if ai_status.get('reason') %}
+                    <br>Reason: {{ ai_status.reason }}
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Error Display -->
+{% if error %}
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-danger">
+            <h5><i class="fas fa-exclamation-triangle"></i> AI Dashboard Error</h5>
+            <p>{{ error }}</p>
+            <button class="btn btn-outline-danger" onclick="location.reload()">
+                <i class="fas fa-sync"></i> Retry
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function trainAIModels() {
+        const statusDiv = document.getElementById('modelTrainingStatus');
+        statusDiv.style.display = 'block';
+        
+        fetch('/api/ai/train', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            statusDiv.style.display = 'none';
+            
+            if (data.overall_success) {
+                showAlert('AI models trained successfully!', 'success');
+                setTimeout(() => location.reload(), 2000);
+            } else {
+                showAlert('Some models failed to train. Check logs for details.', 'warning');
+            }
+        })
+        .catch(error => {
+            statusDiv.style.display = 'none';
+            showAlert('Training failed: ' + error, 'danger');
+        });
+    }
+    
+    function runAIAnalysis() {
+        showAlert('Running comprehensive AI analysis...', 'info');
+        
+        fetch('/api/ai/analyze', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ hours: 24 })
+        })
+        .then(response => response.json())
+        .then(data => {
+            showAlert('AI analysis completed!', 'success');
+            setTimeout(() => location.reload(), 1000);
+        })
+        .catch(error => {
+            showAlert('Analysis failed: ' + error, 'danger');
+        });
+    }
+    
+    function refreshPredictions() {
+        showAlert('Refreshing threat predictions...', 'info');
+        
+        fetch('/api/ai/predict?hours=24')
+        .then(response => response.json())
+        .then(data => {
+            showAlert('Predictions updated!', 'success');
+            setTimeout(() => location.reload(), 1000);
+        })
+        .catch(error => {
+            showAlert('Prediction refresh failed: ' + error, 'danger');
+        });
+    }
+    
+    function showAlert(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        const container = document.querySelector('.main-content');
+        container.insertBefore(alertDiv, container.firstChild);
+        
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+    
+    // Auto-refresh every 5 minutes
+    setInterval(() => {
+        location.reload();
+    }, 300000);
+</script>
+{% endblock %}

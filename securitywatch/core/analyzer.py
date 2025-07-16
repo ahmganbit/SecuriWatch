@@ -1,24 +1,42 @@
 """
 SecurityWatch Pro - Threat Analysis Engine
+Enhanced with AI/ML capabilities for advanced threat detection
 """
 
 from collections import defaultdict, Counter
 from datetime import datetime, timedelta
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
+import logging
 
 from ..models.events import SecurityEvent
 from .database import SecurityDatabase
 
 
 class ThreatAnalyzer:
-    """Advanced threat analysis and correlation"""
-    
-    def __init__(self, database: SecurityDatabase):
+    """Advanced threat analysis and correlation with AI/ML capabilities"""
+
+    def __init__(self, database: SecurityDatabase, enable_ai: bool = True):
         self.database = database
         self.event_cache = defaultdict(list)
+        self.enable_ai = enable_ai
+        self.logger = logging.getLogger('SecurityWatch.ThreatAnalyzer')
+
+        # Initialize AI components if enabled
+        self.ml_manager = None
+        if enable_ai:
+            try:
+                from ..ai.ml_models import MLModelManager
+                self.ml_manager = MLModelManager(database)
+                self.logger.info("AI/ML capabilities enabled")
+            except ImportError as e:
+                self.logger.warning(f"AI/ML dependencies not available: {e}")
+                self.enable_ai = False
+            except Exception as e:
+                self.logger.error(f"Failed to initialize AI components: {e}")
+                self.enable_ai = False
     
     def analyze_events(self, events: List[SecurityEvent]) -> Dict[str, Any]:
-        """Perform comprehensive threat analysis"""
+        """Perform comprehensive threat analysis with AI enhancement"""
         analysis = {
             'total_events': len(events),
             'severity_breakdown': Counter(),
@@ -28,6 +46,7 @@ class ThreatAnalyzer:
             'brute_force_attempts': [],
             'geographic_analysis': {},
             'recommendations': [],
+            'ai_analysis': {},
             'timeline_analysis': {},
             'threat_score': 0
         }
@@ -51,7 +70,27 @@ class ThreatAnalyzer:
         
         # Generate recommendations
         analysis['recommendations'] = self._generate_recommendations(analysis)
-        
+
+        # AI-Enhanced Analysis
+        if self.enable_ai and self.ml_manager and events:
+            try:
+                ai_analysis = self.ml_manager.quick_analysis(events)
+                analysis['ai_analysis'] = ai_analysis
+
+                # Enhance threat score with AI insights
+                if ai_analysis.get('threat_level') == 'critical':
+                    analysis['threat_score'] = min(analysis['threat_score'] + 20, 100)
+                elif ai_analysis.get('threat_level') == 'high':
+                    analysis['threat_score'] = min(analysis['threat_score'] + 10, 100)
+
+                # Add AI recommendations
+                if ai_analysis.get('alerts'):
+                    analysis['recommendations'].extend(ai_analysis['alerts'])
+
+            except Exception as e:
+                self.logger.error(f"AI analysis failed: {e}")
+                analysis['ai_analysis'] = {'error': str(e)}
+
         return analysis
     
     def _detect_brute_force(self, events: List[SecurityEvent]) -> List[Dict]:
@@ -223,3 +262,90 @@ class ThreatAnalyzer:
         }
         
         return analysis
+
+    def analyze_events_comprehensive_ai(self, events: List[SecurityEvent]) -> Dict[str, Any]:
+        """Perform comprehensive AI-powered threat analysis"""
+        if not self.enable_ai or not self.ml_manager:
+            self.logger.warning("AI analysis requested but not available")
+            return self.analyze_events(events)
+
+        try:
+            # Run comprehensive AI analysis
+            ai_results = self.ml_manager.analyze_events_comprehensive(events)
+
+            # Run traditional analysis
+            traditional_analysis = self.analyze_events(events)
+
+            # Combine results
+            comprehensive_analysis = {
+                **traditional_analysis,
+                'ai_comprehensive': ai_results,
+                'analysis_type': 'comprehensive_ai',
+                'ai_enabled': True
+            }
+
+            # Enhance threat score with comprehensive AI insights
+            if ai_results.get('insights', {}).get('overall_threat_level') == 'critical':
+                comprehensive_analysis['threat_score'] = min(comprehensive_analysis['threat_score'] + 30, 100)
+            elif ai_results.get('insights', {}).get('overall_threat_level') == 'high':
+                comprehensive_analysis['threat_score'] = min(comprehensive_analysis['threat_score'] + 20, 100)
+            elif ai_results.get('insights', {}).get('overall_threat_level') == 'medium':
+                comprehensive_analysis['threat_score'] = min(comprehensive_analysis['threat_score'] + 10, 100)
+
+            # Add AI recommendations
+            ai_recommendations = ai_results.get('insights', {}).get('recommendations', [])
+            comprehensive_analysis['recommendations'].extend(ai_recommendations)
+
+            # Add AI key findings
+            ai_findings = ai_results.get('insights', {}).get('key_findings', [])
+            comprehensive_analysis['ai_key_findings'] = ai_findings
+
+            return comprehensive_analysis
+
+        except Exception as e:
+            self.logger.error(f"Comprehensive AI analysis failed: {e}")
+            # Fallback to traditional analysis
+            fallback_analysis = self.analyze_events(events)
+            fallback_analysis['ai_error'] = str(e)
+            fallback_analysis['analysis_type'] = 'traditional_fallback'
+            return fallback_analysis
+
+    def train_ai_models(self) -> Dict[str, Any]:
+        """Train all AI/ML models"""
+        if not self.enable_ai or not self.ml_manager:
+            return {'error': 'AI not available'}
+
+        try:
+            return self.ml_manager.train_all_models()
+        except Exception as e:
+            self.logger.error(f"AI model training failed: {e}")
+            return {'error': str(e)}
+
+    def get_ai_status(self) -> Dict[str, Any]:
+        """Get AI/ML system status"""
+        if not self.enable_ai or not self.ml_manager:
+            return {
+                'ai_enabled': False,
+                'reason': 'AI components not available'
+            }
+
+        try:
+            status = self.ml_manager.get_model_status()
+            status['ai_enabled'] = True
+            return status
+        except Exception as e:
+            return {
+                'ai_enabled': False,
+                'error': str(e)
+            }
+
+    def predict_threats(self, hours_ahead: int = 24) -> Dict[str, Any]:
+        """Predict future threats using AI"""
+        if not self.enable_ai or not self.ml_manager:
+            return {'error': 'AI not available'}
+
+        try:
+            return self.ml_manager.predictive_engine.predict_threat_trends(hours_ahead)
+        except Exception as e:
+            self.logger.error(f"Threat prediction failed: {e}")
+            return {'error': str(e)}
