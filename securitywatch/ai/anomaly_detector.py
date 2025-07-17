@@ -187,7 +187,8 @@ class AnomalyDetector:
         
         # Detect anomalies using Isolation Forest
         anomaly_scores = self.isolation_forest.decision_function(X_scaled)
-        is_anomaly = self.isolation_forest.predict(X_scaled) == -1
+        predictions = self.isolation_forest.predict(X_scaled)
+        is_anomaly = (predictions == -1)
         
         # Get cluster assignments
         cluster_labels = self.dbscan.fit_predict(X_scaled)
